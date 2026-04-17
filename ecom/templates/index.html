@@ -21,9 +21,10 @@
     />
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href={% static "css/ecom.css" %} />
+    <link rel="stylesheet" href={% static "CSS/ecom.css" %} />
   </head>
   <body>
+    <!--====================== Navbar ======================-->
    
     <!--======================Carousel Section======================-->
     <div id="myCarousel" class="carousel slide" data-ride="carousel">
@@ -102,22 +103,22 @@
           {% for i in cat %}
           <div class="col-lg-3 col-md-6 p-0">
             <div class="card p-1 border-0 scale-style">
-              <a href={% url "cat_pro" i.id %}>
+              <a href={% url 'product' i.id %}>
                 <img
                   class="card-img-top img-hover"
-                  src="{{i.image.url}}"
+                  src="{{ i.image.url }}"
                   alt="Card image cap"
                   style="height: 300px"
                 />
               </a>
               <div class="card-body text-center">
                 <p class="card-text text-center">{{i.name}}</p>
-                <a href="{% url 'pro_details' i.id %}">
+                <a href="product.html">
                   <button type="button" class="btn btn-outline-success mt-2">
                     Buy Now
                   </button>
                 </a>
-                <a href="{% url 'pro_details' i.id %}">
+                <a href="cart.html">
                   <button type="button" class="btn btn-outline-success mt-2">
                     Add To Cart
                   </button>
@@ -125,12 +126,12 @@
               </div>
             </div>
           </div>
-        {% endfor %}
+          {% endfor %}
         </div>
-        
       </div>
     </section>
-   
+
   </body>
 </html>
+
 {% endblock content1 %}

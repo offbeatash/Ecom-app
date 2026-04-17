@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import razorpay
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
+import os
 # Create your views here.
 
 def first(request):
@@ -202,8 +203,8 @@ def checkout(request):
 def payment(request, order_id):
     order = Order.objects.get(id=order_id)
     # Using test keys
-    razorpay_merchant_key = "rzp_test_SefNhMt82MChpI"
-    razorpay_merchant_secret = "PahYR7VvY7QeBDcfSPOsbnc9"
+    razorpay_merchant_key = os.getenv('RAZORPAY_KEY_ID')
+    razorpay_merchant_secret = os.getenv('RAZORPAY_KEY_SECRET')
     
     try:
         client = razorpay.Client(auth=(razorpay_merchant_key, razorpay_merchant_secret))
@@ -235,8 +236,8 @@ def payment_verify(request):
         order.razorpay_payment_id = razorpay_payment_id
         order.razorpay_signature = razorpay_signature
         
-        razorpay_merchant_key = "rzp_test_SefNhMt82MChpI"
-        razorpay_merchant_secret = "PahYR7VvY7QeBDcfSPOsbnc9"
+        razorpay_merchant_key = os.getenv('RAZORPAY_KEY_ID')
+        razorpay_merchant_secret = os.getenv('RAZORPAY_KEY_SECRET')
         client = razorpay.Client(auth=(razorpay_merchant_key, razorpay_merchant_secret))
         
         try:

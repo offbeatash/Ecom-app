@@ -32,11 +32,10 @@
       <div class="row mt-4 mr-auto ml-auto">
         <div class="col-lg-4">
           <img
-            src={{product.image.url}}
+            src="{{product.image.url}}"
             alt="Product Image"
-            class="img-fluid"
-            height="500px"
-            width="300px"
+            class="img-fluid rounded shadow-sm"
+            style="width: 100%; height: 400px; object-fit: cover;"
           />
         </div>
         <div class="col-lg-6 mr-auto ml-auto mt-5">
@@ -46,7 +45,7 @@
           </p>
           <p><strong>Price:</strong> ₹{{product.price}}</p>
 
-          <form action="" method="post">
+          <form action="{% url 'add_to_cart' product.id %}" method="post">
             {% csrf_token %}
             <input type="number" name="qty" value="1" min="1" max="10"> 
 

@@ -23,7 +23,7 @@
      <!--====================== Navbar ======================-->
     <header class="container-fluid navbar-light bg-light">
       <nav class="navbar container navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="index.html">Navbar</a>
+        <a class="navbar-brand font-weight-bold text-success" href="{% url 'index' %}"><i class="fa fa-shopping-bag mr-2"></i>DjangoStore</a>
         <button
           class="navbar-toggler"
           type="button"
@@ -56,15 +56,9 @@
             </li>
             {% endif %}
             <li class="nav-item">
-              <a class="nav-link" href="orderhistory.html">Order History</a>
+              <a class="nav-link" href="{% url 'order_history' %}">Order History</a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" href="addproduct.html">
-                <i class="fa-solid fa-plus-square text-dark" aria-hidden="true">
-                  Add product</i
-                >
-              </a>
-            </li>
+
             <li class="nav-item">
               <input
                 class="input-group-text"
@@ -73,8 +67,7 @@
               />
             </li>
             <li class="nav-item">
-              
-              <a class="nav-link" 
+              <a class="nav-link" href="{% url 'cart' %}"
                 ><i class="fa fa-cart-shopping text-dark" aria-hidden="true"></i
               ></a>
             </li>

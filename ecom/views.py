@@ -1,5 +1,9 @@
 from django.shortcuts import render, HttpResponse, redirect
 from .models import *
+from django.contrib.auth.hashers import make_password, check_password
+import razorpay
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
 # Create your views here.
 
 def first(request):
@@ -51,18 +55,20 @@ def storeimg(request):
 
 def register(request):
     if request.method == 'POST':
+        hashed_password = make_password(request.POST['password'])
         sign_up = Registration(email=request.POST['email'], 
                                name =request.POST['name'],
                                mob = request.POST['mob'], 
                                address = request.POST['add'],
-                               password = request.POST['password'])
+                               password = hashed_password)
         try:    
             already_reg =  Registration.objects.get(email = request.POST['email'])
             if already_reg:
                 return render(request, 'register.html', {'already': 'Email already registered!! '})
         except:
             sign_up.save()
-            return render(request, 'register.html', {'registration': 'Registration Successful'})
+            messages.success(request, 'Registration Successful! Welcome to Dj E-Commerce.')
+            return redirect('index')
     else:
         return render(request, 'register.html')
 
@@ -71,7 +77,12 @@ def login(request):
         try:
             is_present = Registration.objects.get(email=request.POST['email'])
             if is_present:
-                if request.POST['password'] == is_present.password:
+                if check_password(request.POST['password'], is_present.password) or request.POST['password'] == is_present.password:
+                    # Upgrade password hashing if plain text matches
+                    if request.POST['password'] == is_present.password:
+                        is_present.password = make_password(request.POST['password'])
+                        is_present.save()
+
                     request.session['login'] = is_present.email
                     return redirect('index')
                 
@@ -118,3 +129,134 @@ def profile(request):
         return render(request, 'profile.html',{'logged_in': True, 'logged_user': logged_user})
     else:
         return redirect('login')
+
+def add_to_cart(request, id):
+    if 'login' in request.session:
+        qty = int(request.POST.get('qty', 1))
+        user = Registration.objects.get(email=request.session['login'])
+        product = Product.objects.get(id=id)
+        
+        cart_obj, created = Cart.objects.get_or_create(user=user)
+        cart_item, item_created = CartItem.objects.get_or_create(cart=cart_obj, product=product)
+        
+        if not item_created:
+            cart_item.quantity += qty
+        else:
+            cart_item.quantity = qty
+        cart_item.save()
+        return redirect('cart')
+    return redirect('login')
+
+def cart(request):
+    if 'login' in request.session:
+        user = Registration.objects.get(email=request.session['login'])
+        cart_obj = Cart.objects.filter(user=user).first()
+        cart_items = cart_obj.items.all() if cart_obj else []
+        total = sum([item.get_total_price() for item in cart_items])
+        
+        return render(request, 'cart.html', {'cart_items': cart_items, 'total': total, 'logged_in': user})
+    return redirect('login')
+
+def checkout(request):
+    if 'login' in request.session:
+        user = Registration.objects.get(email=request.session['login'])
+        cart_obj = Cart.objects.filter(user=user).first()
+        cart_items = cart_obj.items.all() if cart_obj else []
+        total = sum([item.get_total_price() for item in cart_items])
+        
+        if request.method == 'POST':
+            if not cart_obj or not cart_items:
+                return redirect('cart')
+            
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            mob = request.POST.get('mob')
+            address = request.POST.get('add')
+            city = request.POST.get('city')
+            state = request.POST.get('state')
+            country = request.POST.get('country')
+            pin = request.POST.get('pin')
+            paymentvia = request.POST.get('paymentvia')
+            
+            order = Order.objects.create(
+                user=user, name=name, email=email, mobile=mob, address=address,
+                city=city, state=state, country=country, pincode=pin,
+                total_amount=total, payment_method=paymentvia
+            )
+            
+            for item in cart_items:
+                OrderItem.objects.create(order=order, product=item.product, price=item.product.price, quantity=item.quantity)
+            
+            # clear the cart
+            if cart_obj:
+                cart_obj.delete()
+            
+            if paymentvia == 'online':
+                return redirect('payment', order_id=order.id)
+            else:
+                return HttpResponse("Order Placed Successfully! (Cash on Delivery)") 
+                
+        return render(request, 'checkout.html', {'cart_data': cart_items, 'total': total, 'logged_in': user})
+    return redirect('login')
+
+def payment(request, order_id):
+    order = Order.objects.get(id=order_id)
+    # Using test keys
+    razorpay_merchant_key = "rzp_test_SefNhMt82MChpI"
+    razorpay_merchant_secret = "PahYR7VvY7QeBDcfSPOsbnc9"
+    
+    try:
+        client = razorpay.Client(auth=(razorpay_merchant_key, razorpay_merchant_secret))
+        data = { "amount": order.total_amount * 100, "currency": "INR", "receipt": f"order_{order.id}" }
+        payment_order = client.order.create(data=data)
+        
+        order.razorpay_order_id = payment_order['id']
+        order.save()
+        
+        context = {
+            'razorpay_merchant_key': razorpay_merchant_key,
+            'razorpay_amount': order.total_amount * 100,
+            'currency': 'INR',
+            'razorpay_order_id': payment_order['id'],
+            'callback_url': '/payment_verify/',
+        }
+        return render(request, 'razorpay.html', context)
+    except:
+        return HttpResponse("Razorpay keys are invalid placeholders. Please add your test keys.")
+
+@csrf_exempt
+def payment_verify(request):
+    if request.method == "POST":
+        razorpay_payment_id = request.POST.get('razorpay_payment_id')
+        razorpay_order_id = request.POST.get('razorpay_order_id')
+        razorpay_signature = request.POST.get('razorpay_signature')
+        
+        order = Order.objects.get(razorpay_order_id=razorpay_order_id)
+        order.razorpay_payment_id = razorpay_payment_id
+        order.razorpay_signature = razorpay_signature
+        
+        razorpay_merchant_key = "rzp_test_SefNhMt82MChpI"
+        razorpay_merchant_secret = "PahYR7VvY7QeBDcfSPOsbnc9"
+        client = razorpay.Client(auth=(razorpay_merchant_key, razorpay_merchant_secret))
+        
+        try:
+            client.utility.verify_payment_signature({
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': razorpay_payment_id,
+                'razorpay_signature': razorpay_signature
+            })
+            order.payment_status = 'Paid'
+            order.save()
+            return HttpResponse("Payment Successful!")
+        except:
+            order.payment_status = 'Failed'
+            order.save()
+            return HttpResponse("Payment Failed! Signature mismatch.")
+    return redirect('index')
+
+def order_history(request):
+    if 'login' in request.session:
+        user = Registration.objects.get(email=request.session['login'])
+        orders = Order.objects.filter(user=user).order_by('-created_at')
+        return render(request, 'order_history.html', {'orders': orders, 'logged_in': True})
+    return redirect('login')
